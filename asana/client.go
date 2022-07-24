@@ -16,7 +16,6 @@ import (
 const (
 	baseUrl             = "https://app.asana.com/api/1.0"
 	envAsanaAccessToken = "ASANA_PERSONAL_ACCESS_TOKEN"
-	envAsanaTaskListID  = "ASANA_TASK_LIST_ID"
 )
 
 type Client struct {
@@ -58,11 +57,7 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) ListAllTasks() (chan *Response, error) {
-	taskListID := os.Getenv(envAsanaTaskListID)
-	if taskListID == "" {
-		return nil, fmt.Errorf("%v was not set in your environment", envAsanaTaskListID)
-	}
+func (c *Client) ListAllTasks(taskListID string) (chan *Response, error) {
 	resChan := make(chan *Response)
 	go func() {
 		defer close(resChan)
