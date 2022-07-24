@@ -25,20 +25,20 @@ type Client struct {
 }
 
 type Task struct {
-	id        string `json:"gid,omitempty"`
-	completed bool   `json:"completed,omitempty"`
+	ID        string `json:"gid"`
+	Completed bool   `json:"completed"`
 }
 
-type NextPage struct {
+type nextPage struct {
 	offset string `json:"offset"`
 	path   string `json:"path"`
 	uri    string `json:"uri"`
 }
 
 type Response struct {
-	data     json.RawMessage `json:"data"`
-	nextPage *NextPage       `json:"next_page"`
-	err      error
+	Data     []*Task   `json:"data,omitempty"`
+	nextPage *nextPage `json:"next_page,omitempty"`
+	Err      error
 }
 
 func NewClient() (*Client, error) {
@@ -58,18 +58,41 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) ListAllTasks() ([]*Task, *NextPage, error) {
+func (c *Client) ListAllTasks() (chan *Response, error) {
 	taskListID := os.Getenv(envAsanaTaskListID)
 	if taskListID == "" {
-		return nil, nil, fmt.Errorf("%v was not set in your environment", envAsanaTaskListID)
+		return nil, fmt.Errorf("%v was not set in your environment", envAsanaTaskListID)
 	}
-	var result []*Task
-	nextPage, err := c.getAllTasks(fmt.Sprintf("/projects/%s/tasks?opt_fields=completed", taskListID), &result)
-	return result, nextPage, err
+	resChan := make(chan *Response)
+	go func() {
+		defer close(resChan)
+		path := fmt.Sprintf("/projects/%s/tasks?opt_fields=completed", taskListID)
+		for {
+			requestID := xid.New()
+			res, err := c.getResponse(path, requestID)
+			if err != nil {
+				resChan <- &Response{Err: err}
+				return
+			}
+			page, err := c.parseResponse(res, requestID)
+			if err != nil {
+				resChan <- &Response{Err: err}
+				return
+			}
+
+			resChan <- page
+
+			if np := page.nextPage; np != nil && np.path == "" {
+				path = np.path + "&opt_fields=completed"
+			} else {
+				break
+			}
+		}
+	}()
+	return resChan, nil
 }
 
-func (c *Client) getAllTasks(path string, result *[]*Task) (*NextPage, error) {
-	requestID := xid.New()
+func (c *Client) getResponse(path string, requestID xid.ID) (*http.Response, error) {
 	request, err := http.NewRequest(http.MethodGet, c.getURL(path), nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "%s Request error", requestID)
@@ -78,40 +101,25 @@ func (c *Client) getAllTasks(path string, result *[]*Task) (*NextPage, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "%s GET error", requestID)
 	}
-	resultData, err := c.parseResponse(res, result, requestID)
-	if err != nil {
-		return nil, err
-	}
-
-	return resultData.nextPage, nil
+	return res, nil
 }
 
 func (c *Client) getURL(path string) string {
 	return c.baseURL.String() + path
 }
 
-func (c *Client) parseResponse(res *http.Response, result interface{}, requestID xid.ID) (*Response, error) {
+func (c *Client) parseResponse(res *http.Response, requestID xid.ID) (*Response, error) {
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
-	value := &Response{}
-	if err := json.Unmarshal(body, value); err != nil {
-		return nil, errors.Wrapf(err, "%s Unable to parse response body", requestID)
+	page := new(Response)
+	if err := json.Unmarshal(body, page); err != nil {
+		page.Err = err
 	}
-	if value.data == nil {
+	if page.Data == nil {
 		return nil, errors.Errorf("%s Missing data from response", requestID)
 	}
-	return value, c.parseResponseData(value.data, result, requestID)
-}
-
-func (c *Client) parseResponseData(data []byte, result interface{}, requestID xid.ID) error {
-	if result == nil {
-		return nil
-	}
-	if err := json.Unmarshal(data, result); err != nil {
-		return errors.Wrapf(err, "%s Unable to parse response data", requestID)
-	}
-	return nil
+	return page, nil
 }
