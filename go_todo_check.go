@@ -81,6 +81,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 						if !asana.TaskStatus(taskID, taskListID) {
 							pass.Reportf(comment.Pos(), "TODO comment must contains incomplete asana task's link")
 						}
+					} else {
+						pass.Reportf(comment.Pos(), "TODO comment must contains open github issue's link or asana task's link")
 					}
 				}
 			}
