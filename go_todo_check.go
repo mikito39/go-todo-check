@@ -67,7 +67,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		case *ast.File:
 			for _, comment := range n.Comments {
 				s := comment.Text()
-				if strings.Contains(s, "nolint: go-todo-check") {
+				if strings.Contains(s, "-ignore") {
 					continue
 				}
 				if strings.Contains(s, "TODO ") || strings.Contains(s, "TODO:") {
