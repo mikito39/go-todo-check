@@ -9,11 +9,13 @@ go get github.com/mikito39/go-todo-check/cmd/go-todo-check
 
 ## Requirement
 
-`go-todo-check` requires api access token
+`go-todo-check` requires api access token <br> <br>
+see github: https://docs.github.com/ja/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token <br>
+see asana: https://asana.com/ja/guide/help/api/api
 
 ```sh
 export ASANA_PERSONAL_ACCESS_TOKEN="YOUR_ASANA_PERSONAL_ACCESS_TOKEN"
-export GITHUB_ACCESS_TOKEN="YOUR_GITHUB_ACCESS_TOKEN"
+export GITHUB_ACCESS_TOKEN="YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"
 ```
 
 ## Usage
